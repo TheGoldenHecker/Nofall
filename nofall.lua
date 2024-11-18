@@ -1,52 +1,38 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
+-- File: prevent_fall_damage.lua
 
--- Function to prevent falling and keep the character movable
-local function preventFall(character)
-    local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
-    local humanoid = character:WaitForChild("Humanoid", 5)
-    if not humanoidRootPart or not humanoid then return end -- Exit if essential parts are missing
+-- Constants
+local SLOW_FALL_THRESHOLD = -50 -- Velocity at which the fall is slowed
+local FALL_SLOW_FACTOR = 0.5   -- Factor to slow down the fall
+local CHECK_INTERVAL = 0.05    -- How often to check the player's velocity
 
-    local connection
-    connection = RunService.Heartbeat:Connect(function()
-        if humanoid and humanoid.Health > 0 then
+-- Function to slow the player's fall
+local function slowFall(player)
+    local character = player.Character
+    if character then
+        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+        if humanoidRootPart then
+            -- Get the current vertical velocity
             local velocity = humanoidRootPart.Velocity
-
-            -- Neutralize downward velocity to prevent falling
-            if velocity.Y < 0 then
-                humanoidRootPart.Velocity = Vector3.new(velocity.X, 0, velocity.Z)
-                
-                -- Prevent "Falling" state
-                local currentState = humanoid:GetState()
-                if currentState == Enum.HumanoidStateType.Freefall or currentState == Enum.HumanoidStateType.FallingDown then
-                    humanoid:ChangeState(Enum.HumanoidStateType.Running)
-                end
-            end
-        else
-            if connection then
-                connection:Disconnect() -- Disconnect if the character dies
+            if velocity.Y < SLOW_FALL_THRESHOLD then
+                -- Slow down the vertical velocity
+                humanoidRootPart.Velocity = Vector3.new(velocity.X, velocity.Y * FALL_SLOW_FACTOR, velocity.Z)
             end
         end
-    end)
-
-    -- Ensure connection is cleaned up if character is removed
-    character.AncestryChanged:Connect(function(_, parent)
-        if not parent and connection then
-            connection:Disconnect()
-        end
-    end)
+    end
 end
 
--- Listen for character spawning or respawning
-local function onCharacterAdded(character)
-    preventFall(character)
+-- Main function to start monitoring the player's fall
+local function preventFallDamage(player)
+    -- Periodically check and adjust velocity
+    while true do
+        slowFall(player)
+        wait(CHECK_INTERVAL)
+    end
 end
 
--- Bind the function to the player
-player.CharacterAdded:Connect(onCharacterAdded)
+-- Detect when the local player is added
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
 
--- Handle the case where the character is already loaded
-if player.Character then
-    onCharacterAdded(player.Character)
-end
+-- Start the fall prevention system for the local player
+preventFallDamage(localPlayer)
